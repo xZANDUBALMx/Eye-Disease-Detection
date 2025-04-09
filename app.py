@@ -28,7 +28,7 @@ def dr_prediction(image_input):
     # Prepare the image for prediction.
     size = (224, 224)
     image = Image.open(image_input)
-    image = ImageOps.fit(image, size, Image.ANTIALIAS)
+    image = ImageOps.fit(image, size, Image.Resampling.LANCZOS)
     image_array = np.asarray(image)
     normalized_image_array = (image_array.astype(np.float32) / 127.0) - 1
     data = np.expand_dims(normalized_image_array, axis=0)
