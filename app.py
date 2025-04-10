@@ -5,8 +5,8 @@ import tensorflow as tf
 import time
 from PIL import Image, ImageOps
 
-# Define the base directory for your saved model
-BASE_DIR = r'D:\College\Jupyter Lab\Major Project'
+# Define the base directory as the directory where app.py is located.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # DR Diagnosis Mapping
 DIAGNOSIS_DICT = {
