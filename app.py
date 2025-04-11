@@ -12,7 +12,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 # Define the base directory as the directory where app.py is located.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# DR Diagnosis Mapping
+# DR Diagnosis Mapping – note: keys must match your model's label encoding.
 DIAGNOSIS_DICT = {
     0: 'No_DR',
     1: 'Mild',
@@ -21,7 +21,7 @@ DIAGNOSIS_DICT = {
     4: 'Proliferate_DR',
 }
 
-# Cache the loading of the model so it doesn't reload every time
+# Cache the loading of the model so it doesn't reload every time.
 @st.cache_resource
 def load_dr_model():
     model_path = os.path.join(BASE_DIR, 'efficientnetb1.keras')
@@ -54,15 +54,15 @@ def plot_prediction_distribution(prediction):
     return fig
 
 def save_uploaded_file(uploaded_file):
-    # Create an "uploads" directory if it doesn't exist
+    # Create an "uploads" directory if it doesn't exist.
     uploads_dir = os.path.join(BASE_DIR, "uploads")
     if not os.path.exists(uploads_dir):
         os.makedirs(uploads_dir)
-    # Create a unique folder with a timestamp
+    # Create a unique folder with a timestamp.
     time_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     new_folder = os.path.join(uploads_dir, time_stamp)
     os.makedirs(new_folder, exist_ok=True)
-    # Define saved file name (keeping its original extension)
+    # Define saved file name (keeping its original extension).
     file_ext = os.path.splitext(uploaded_file.name)[1]
     save_path = os.path.join(new_folder, f"uploaded{file_ext}")
     with open(save_path, "wb") as f:
@@ -72,8 +72,7 @@ def save_uploaded_file(uploaded_file):
 def main():
     st.title("DetAll: Diabetic Retinopathy Detection")
     st.sidebar.title("Navigation")
-    # Updated menu: added "Model Evaluation"
-    menu_options = ["Home", "DR Detection", "Details", "Model Evaluation"]
+    menu_options = ["Home", "DR Detection", "Details", "Model Evaluation", "Dataset Analysis"]
     choice = st.sidebar.selectbox("Menu", menu_options)
 
     if choice == "Home":
@@ -115,10 +114,8 @@ def main():
             "Below are the supplementary graphs and visualizations that provide "
             "more insights into the model's performance and training process."
         )
-        # Define the folder where your detailed images are stored.
         details_folder = os.path.join(BASE_DIR, "details")
         if os.path.exists(details_folder):
-            # Get a sorted list of image files in the folder.
             detail_images = sorted([f for f in os.listdir(details_folder)
                                     if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
             if detail_images:
@@ -145,13 +142,10 @@ def main():
             y_true = data['y_true']
             y_pred = data['y_pred']
             
-            # Plot training history (accuracy & loss)
             st.subheader("Training History (Accuracy and Loss)")
             def plot_accuracy_loss(acc, val_acc, loss, val_loss):
                 epochs = range(1, len(acc) + 1)
                 plt.figure(figsize=(12, 6))
-                
-                # Accuracy plot
                 plt.subplot(1, 2, 1)
                 plt.plot(epochs, acc, 'bo-', label="Training Accuracy")
                 plt.plot(epochs, val_acc, 'ro-', label="Validation Accuracy")
@@ -159,8 +153,6 @@ def main():
                 plt.xlabel("Epochs")
                 plt.ylabel("Accuracy")
                 plt.legend()
-                
-                # Loss plot
                 plt.subplot(1, 2, 2)
                 plt.plot(epochs, loss, 'bo-', label="Training Loss")
                 plt.plot(epochs, val_loss, 'ro-', label="Validation Loss")
@@ -168,15 +160,11 @@ def main():
                 plt.xlabel("Epochs")
                 plt.ylabel("Loss")
                 plt.legend()
-                
                 plt.tight_layout()
                 st.pyplot(plt)
-            
             plot_accuracy_loss(acc, val_acc, loss, val_loss)
             
-            # Plot confusion matrix
             st.subheader("Confusion Matrix")
-            # Create a list of class names in sorted order by keys
             class_names = [DIAGNOSIS_DICT[k] for k in sorted(DIAGNOSIS_DICT.keys())]
             cm = confusion_matrix(y_true, y_pred)
             plt.figure(figsize=(8, 6))
@@ -186,12 +174,82 @@ def main():
             plt.ylabel("True Labels")
             st.pyplot(plt)
             
-            # Classification report
             st.subheader("Classification Report")
-            report = classification_report(y_true, y_pred, target_names=class_names)
-            st.text(report)
+            try:
+                report = classification_report(y_true, y_pred, labels=[0,1,2,3,4], target_names=class_names)
+                st.text(report)
+            except Exception as e:
+                st.error(f"Error generating classification report: {e}")
         else:
             st.write("Evaluation data file not found. Please generate it using create_evaluation_data.py and store it in the 'evaluation' folder.")
+    
+    elif choice == "Dataset Analysis":
+        st.header("Dataset Analysis")
+        st.write("Upload an image from the dataset for detailed analysis.")
+        image_input = st.file_uploader("Upload image", type=["jpg", "png"])
+        if image_input is not None:
+            # Display the uploaded image.
+            uploaded_image = Image.open(image_input)
+            st.image(uploaded_image, caption="Uploaded Image for Analysis", use_column_width=True)
+            
+            # Use the model to predict its class.
+            pred_class, confidence, prediction = dr_prediction(image_input)
+            st.success(f"Predicted Class: **{pred_class}** with {confidence:.2f}% confidence.")
+            
+            # Determine the corresponding folder from the dataset.
+            dataset_folder = os.path.join(BASE_DIR, "gaussian_filtered_images", pred_class)
+            if os.path.exists(dataset_folder):
+                # Load sample images from that folder.
+                image_files = [os.path.join(dataset_folder, f) for f in os.listdir(dataset_folder)
+                               if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+                if len(image_files) == 0:
+                    st.write("No images found in the predicted class folder.")
+                else:
+                    st.subheader("Sample Images from Predicted Class")
+                    sample_count = min(25, len(image_files))
+                    sampled_files = np.random.choice(image_files, sample_count, replace=False)
+                    cols = st.columns(5)
+                    for i, img_path in enumerate(sampled_files):
+                        with cols[i % 5]:
+                            st.image(img_path, use_column_width=True)
+                    
+                    # Run predictions on a subset of images from that class to get a distribution.
+                    st.subheader("Prediction Distribution in Predicted Class Folder")
+                    predictions_list = []
+                    num_images_to_predict = min(100, len(image_files))
+                    for img_path in image_files[:num_images_to_predict]:
+                        try:
+                            img = Image.open(img_path)
+                            size = (224, 224)
+                            img = ImageOps.fit(img, size, Image.Resampling.LANCZOS)
+                            img_array = np.asarray(img)
+                            normalized_img = (img_array.astype(np.float32)/127.0)-1
+                            data = np.expand_dims(normalized_img, axis=0)
+                            model = load_dr_model()
+                            pred = model.predict(data)
+                            pred_index = np.argmax(pred, axis=-1)[0]
+                            predictions_list.append(pred_index)
+                        except Exception as e:
+                            st.write(f"Error processing {img_path}: {e}")
+                    
+                    if predictions_list:
+                        counts = {}
+                        for pred in predictions_list:
+                            counts[pred] = counts.get(pred, 0) + 1
+                        sorted_keys = sorted(counts.keys())
+                        pred_classes = [DIAGNOSIS_DICT.get(i, str(i)) for i in sorted_keys]
+                        pred_counts = [counts[i] for i in sorted_keys]
+                        
+                        fig, ax = plt.subplots()
+                        ax.bar(pred_classes, pred_counts, color='skyblue')
+                        ax.set_title("Prediction Distribution in Folder")
+                        ax.set_xlabel("Predicted Class")
+                        ax.set_ylabel("Count")
+                        st.pyplot(fig)
+                    else:
+                        st.write("No predictions generated for analysis.")
+            else:
+                st.error(f"Dataset folder for class '{pred_class}' not found.")
     
     # Optional: Hide default Streamlit style elements.
     hide_streamlit_style = """
