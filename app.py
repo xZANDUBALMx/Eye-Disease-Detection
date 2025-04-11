@@ -6,6 +6,8 @@ import time
 from PIL import Image, ImageOps
 import matplotlib.pyplot as plt
 import datetime
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report
 
 # Define the base directory as the directory where app.py is located.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -70,7 +72,8 @@ def save_uploaded_file(uploaded_file):
 def main():
     st.title("DetAll: Diabetic Retinopathy Detection")
     st.sidebar.title("Navigation")
-    menu_options = ["Home", "DR Detection", "Details"]
+    # Updated menu: added "Model Evaluation"
+    menu_options = ["Home", "DR Detection", "Details", "Model Evaluation"]
     choice = st.sidebar.selectbox("Menu", menu_options)
 
     if choice == "Home":
@@ -82,8 +85,7 @@ def main():
             time.sleep(0.01)
         status_text.success("Ready!")
         st.write(
-            "This application detects diabetic retinopathy from eye images "
-            "using a pre-trained EfficientNetB1 model."
+            "This application detects diabetic retinopathy from eye images using a pre-trained EfficientNetB1 model."
         )
     
     elif choice == "DR Detection":
@@ -102,9 +104,7 @@ def main():
             if st.sidebar.button("Analyze DR"):
                 with st.spinner("Processing..."):
                     pred_class, confidence, prediction = dr_prediction(image_input)
-                    st.success(
-                        f"Prediction: **{pred_class}** with {confidence:.2f}% confidence."
-                    )
+                    st.success(f"Prediction: **{pred_class}** with {confidence:.2f}% confidence.")
                     # Plot and display the prediction distribution.
                     fig = plot_prediction_distribution(prediction)
                     st.pyplot(fig)
@@ -132,7 +132,67 @@ def main():
                 "The 'details' folder does not exist in the project directory. "
                 "Please create a folder named 'details' and add your visualization images there."
             )
-
+    
+    elif choice == "Model Evaluation":
+        st.header("Model Evaluation Details")
+        eval_file = os.path.join(BASE_DIR, "evaluation", "evaluation_data.npz")
+        if os.path.exists(eval_file):
+            data = np.load(eval_file)
+            acc = data['acc']
+            val_acc = data['val_acc']
+            loss = data['loss']
+            val_loss = data['val_loss']
+            y_true = data['y_true']
+            y_pred = data['y_pred']
+            
+            # Plot training history (accuracy & loss)
+            st.subheader("Training History (Accuracy and Loss)")
+            def plot_accuracy_loss(acc, val_acc, loss, val_loss):
+                epochs = range(1, len(acc) + 1)
+                plt.figure(figsize=(12, 6))
+                
+                # Accuracy plot
+                plt.subplot(1, 2, 1)
+                plt.plot(epochs, acc, 'bo-', label="Training Accuracy")
+                plt.plot(epochs, val_acc, 'ro-', label="Validation Accuracy")
+                plt.title("Model Accuracy")
+                plt.xlabel("Epochs")
+                plt.ylabel("Accuracy")
+                plt.legend()
+                
+                # Loss plot
+                plt.subplot(1, 2, 2)
+                plt.plot(epochs, loss, 'bo-', label="Training Loss")
+                plt.plot(epochs, val_loss, 'ro-', label="Validation Loss")
+                plt.title("Model Loss")
+                plt.xlabel("Epochs")
+                plt.ylabel("Loss")
+                plt.legend()
+                
+                plt.tight_layout()
+                st.pyplot(plt)
+            
+            plot_accuracy_loss(acc, val_acc, loss, val_loss)
+            
+            # Plot confusion matrix
+            st.subheader("Confusion Matrix")
+            # Create a list of class names in sorted order by keys
+            class_names = [DIAGNOSIS_DICT[k] for k in sorted(DIAGNOSIS_DICT.keys())]
+            cm = confusion_matrix(y_true, y_pred)
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+            plt.title("Confusion Matrix")
+            plt.xlabel("Predicted Labels")
+            plt.ylabel("True Labels")
+            st.pyplot(plt)
+            
+            # Classification report
+            st.subheader("Classification Report")
+            report = classification_report(y_true, y_pred, target_names=class_names)
+            st.text(report)
+        else:
+            st.write("Evaluation data file not found. Please generate it using create_evaluation_data.py and store it in the 'evaluation' folder.")
+    
     # Optional: Hide default Streamlit style elements.
     hide_streamlit_style = """
     <style>
