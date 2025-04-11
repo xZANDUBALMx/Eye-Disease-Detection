@@ -5,3 +5,4 @@ Pillow
 matplotlib
 seaborn
 scikit-learn
+cv2
