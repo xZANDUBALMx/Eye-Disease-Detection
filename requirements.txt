@@ -1,8 +1,11 @@
-streamlit==1.27.2
-tensorflow==2.10.0
+streamlit
+tensorflow
 numpy
 pillow
-gdown==4.7.1
+gdown
 matplotlib
 seaborn
 scikit-learn
+opencv-python
+random
+os
