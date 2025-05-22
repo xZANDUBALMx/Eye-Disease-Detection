@@ -7,5 +7,4 @@ matplotlib
 seaborn
 scikit-learn
 opencv-python
-random
-os
+pandas
