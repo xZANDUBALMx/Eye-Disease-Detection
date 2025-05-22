@@ -1,5 +1,5 @@
-streamlit==1.27.2
-tensorflow==2.9.3
+streamlit
+tensorflow
 numpy
 pillow
 gdown
