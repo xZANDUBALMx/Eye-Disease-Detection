@@ -1,18 +1,17 @@
-# Streamlit App for Eye Disease Detection Using MobileNetV2
-
 import streamlit as st
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.models import model_from_json
 from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from PIL import Image
 import os
 import gdown
 
-# Define class names (update according to your dataset)
+# Define class names (update as per your training labels)
 class_names = ['cataract', 'diabetic_retinopathy', 'glaucoma', 'normal']
 
-# Function to download model files from GitHub if they don't exist locally
+# Function to download model files
 def download_model_files():
     json_url = 'https://raw.githubusercontent.com/xZANDUBALMx/Eye-Disease-Detection/main/my_model.json'
     weights_url = 'https://raw.githubusercontent.com/xZANDUBALMx/Eye-Disease-Detection/main/my_model_weights.weights.h5'
@@ -23,7 +22,6 @@ def download_model_files():
     if not os.path.exists("my_model_weights.weights.h5"):
         gdown.download(weights_url, "my_model_weights.weights.h5", quiet=False)
 
-# Function to load model from downloaded files
 @st.cache_resource
 def load_model():
     download_model_files()
@@ -33,26 +31,27 @@ def load_model():
     loaded_model.load_weights("my_model_weights.weights.h5")
     return loaded_model
 
-# Function to preprocess uploaded image
+# Image preprocessing
 def preprocess_image(img):
     img = img.resize((256, 256))
     img_array = image.img_to_array(img)
-    img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
+    img_array = preprocess_input(img_array)
     img_array = tf.expand_dims(img_array, 0)
     return img_array
 
-# Predict class and confidence
+# Prediction function
 @st.cache_data
 def predict_image(model, img):
     processed_img = preprocess_image(img)
     predictions = model.predict(processed_img)
-    predicted_class = class_names[np.argmax(predictions[0])]
-    confidence = round(100 * np.max(predictions[0]), 2)
+    probabilities = tf.nn.softmax(predictions[0]).numpy()
+    predicted_class = class_names[np.argmax(probabilities)]
+    confidence = round(100 * np.max(probabilities), 2)
     return predicted_class, confidence
 
 # Streamlit UI
 st.set_page_config(page_title="Eye Disease Detection", layout="centered")
-st.title("👁️ Eye Disease Detection Using MobileNetV2")
+st.title("\U0001F441\uFE0F Eye Disease Detection Using MobileNetV2")
 
 st.markdown("""
 Upload a retinal image and get the predicted eye condition:
@@ -62,31 +61,26 @@ Upload a retinal image and get the predicted eye condition:
 - **Normal**
 """)
 
-# Load model once
 model = load_model()
 
-# Upload image section
-uploaded_file = st.file_uploader("📤 Upload a JPG or PNG image", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("\U0001F4C4 Upload a JPG or PNG image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
     image_data = Image.open(uploaded_file).convert("RGB")
-    st.image(image_data, caption="Uploaded Image", use_column_width=True)
+    st.image(image_data, caption="Uploaded Image", use_container_width=True)
 
-    if st.button("🧠 Predict"):
+    if st.button("\U0001F9E0 Predict"):
         label, confidence = predict_image(model, image_data)
         st.success(f"Prediction: **{label}**")
         st.info(f"Confidence: {confidence}%")
 
-# Optional: dataset access info for developers
-with st.expander("ℹ️ Developer Info: Access Dataset"):
+with st.expander("\u2139\uFE0F Developer Info: Access Dataset"):
     st.markdown("""
-    [📂 Download Dataset from Google Drive](https://drive.google.com/drive/folders/1qCsY10faS_8RQZ81bfitFJpgDxfwXBVE?usp=sharing)
-    
+    [\U0001F4C2 Download Dataset from Google Drive](https://drive.google.com/drive/folders/1qCsY10faS_8RQZ81bfitFJpgDxfwXBVE?usp=sharing)
+
     This dataset includes categorized images for training and testing:
     - `cataract`
     - `diabetic_retinopathy`
     - `glaucoma`
     - `normal`
-    
-    Note: Dataset is not required to use the app. Only for model training.
     """)
