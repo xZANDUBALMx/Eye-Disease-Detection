@@ -83,4 +83,4 @@ with st.expander("\u2139\uFE0F Developer Info: Access Dataset"):
     - `diabetic_retinopathy`
     - `glaucoma`
     - `normal`
-    """).
+    """)
